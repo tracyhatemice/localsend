@@ -1,6 +1,8 @@
 [submodule "localsend-server"]
 	path = localsend-server
 	url = https://github.com/tracyhatemice/localsend-server.git
+	branch = feat/room-codes
 [submodule "localsend-web"]
 	path = localsend-web
 	url = https://github.com/tracyhatemice/localsend-web.git
+	branch = feat/room-codes
