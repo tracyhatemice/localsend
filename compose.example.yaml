@@ -1,0 +1,80 @@
+services:
+  localsend-web:
+    pull_policy: never
+    build:
+      context: ./localsend-web
+      dockerfile: Containerfile
+      args:
+        BASE_PATH: "${BASE_PATH:-/send}/"
+        BASE_URL: "https://${FQDN:?FQDN is required}"
+        SIGNALING_URL: "wss://${FQDN}${BASE_PATH:-/send}/v1/ws"
+        # TURN credentials are fetched at runtime from /v1/turn-creds; no
+        # TURN_* build args are needed.
+    image: localsend-web:latest
+    restart: unless-stopped
+    networks:
+      - traefik
+    labels:
+      traefik.enable: true
+      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik}
+      # Match BASE_PATH and everything under it.
+      traefik.http.routers.localsend-web.rule: Host(`${FQDN}`) && PathPrefix(`${BASE_PATH:-/send}`)
+      traefik.http.routers.localsend-web.entrypoints: https
+      traefik.http.routers.localsend-web.tls: true
+      traefik.http.routers.localsend-web.tls.certresolver: ${CERTRESOLVER:-letsencrypt}
+      traefik.http.services.localsend-web.loadbalancer.server.port: 80
+      traefik.http.routers.localsend-web.tls.domains[0].main: '${FQDN}'
+      traefik.http.routers.localsend-web.tls.domains[0].sans: '*.${FQDN}'
+
+  localsend-signaling:
+    pull_policy: never
+    build:
+      context: ./localsend-server
+      dockerfile: Dockerfile
+    image: localsend-signaling:latest
+    restart: unless-stopped
+    environment:
+      # All empty disables the /v1/turn-creds endpoint (it returns 404),
+      # and the web client falls back to its built-in defaults (Google STUN).
+      STUN_URL: "${STUN_URL:-}"
+      TURN_URL: "${TURN_URL:-}"
+      TURN_AUTH_SECRET: "${TURN_AUTH_SECRET:-}"
+    networks:
+      - traefik
+    labels:
+      traefik.enable: true
+      traefik.docker.network: ${TRAEFIK_NETWORK:-traefik}
+      # PathPrefix /send/v1/ catches both /v1/ws (WebSocket) and
+      # /v1/turn-creds (HMAC TURN credential endpoint). More specific than
+      # the web router's /send, so Traefik routes here first by default
+      # rule-length priority.
+      traefik.http.routers.localsend-signaling.rule: Host(`${FQDN}`) && PathPrefix(`${BASE_PATH:-/send}/v1/`)
+      traefik.http.routers.localsend-signaling.entrypoints: https
+      traefik.http.routers.localsend-signaling.tls: true
+      traefik.http.routers.localsend-signaling.tls.certresolver: ${CERTRESOLVER:-letsencrypt}
+      traefik.http.routers.localsend-signaling.tls.domains[0].main: '${FQDN}'
+      traefik.http.routers.localsend-signaling.tls.domains[0].sans: '*.${FQDN}'
+      # Strip BASE_PATH so the server (which only knows /v1/...) sees the path it expects.
+      traefik.http.routers.localsend-signaling.middlewares: localsend-stripprefix
+      traefik.http.middlewares.localsend-stripprefix.stripprefix.prefixes: ${BASE_PATH:-/send}
+      traefik.http.services.localsend-signaling.loadbalancer.server.port: 3000
+
+  coturn:
+    image: coturn/coturn:latest
+    restart: unless-stopped
+    # network_mode: host so coturn binds to the host's public v4 + v6 directly
+    # and advertises them in ICE candidates. TURN doesn't go through Traefik —
+    # it's not HTTP. Open UDP+TCP 3478 and UDP 49160-49200 on the host firewall.
+    network_mode: host
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command:
+      - -c
+      - /etc/coturn/turnserver.conf
+      - --realm=${FQDN}
+      - --static-auth-secret=${TURN_AUTH_SECRET:?TURN_AUTH_SECRET required}
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-traefik}
+    external: true
