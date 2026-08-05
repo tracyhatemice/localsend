@@ -131,7 +131,7 @@ server, `localsend/web` for the web client); the custom work lives on feature
 branches stacked on `main`:
 
 ```
-server  feat/room-codes  = main + room-codes/TURN/Dockerfile commits
+server  feat/room-codes  = main + room-codes/TURN commits
 web     feat/basepath     = main + sub-path/signaling commits
 web     feat/room-codes   = feat/basepath + room-codes commits   (stacked)
 ```

@@ -30,7 +30,7 @@ services:
     pull_policy: never
     build:
       context: ./localsend-server
-      dockerfile: Dockerfile
+      dockerfile: server/Dockerfile
     image: localsend-signaling:latest
     restart: unless-stopped
     environment:
