@@ -27,11 +27,14 @@ services:
       traefik.http.routers.localsend-web.tls.domains[0].sans: '*.${FQDN}'
 
   localsend-signaling:
-    pull_policy: never
-    build:
-      context: ./localsend-server
-      dockerfile: server/Dockerfile
-    image: localsend-signaling:latest
+    # Prebuilt on GitHub Actions (.github/workflows/build_signaling_docker.yml
+    # on localsend-server's feat/room-codes). The image is generic: all config
+    # (STUN/TURN/limits) is runtime env, nothing is baked at build time.
+    # To build locally instead, replace `image` with:
+    #   pull_policy: never
+    #   build: { context: ./localsend-server, dockerfile: server/Dockerfile }
+    #   image: localsend-signaling:latest
+    image: ghcr.io/tracyhatemice/localsend-signaling:latest
     restart: unless-stopped
     environment:
       # All empty disables the /v1/turn-creds endpoint (it returns 404),
