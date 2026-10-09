@@ -85,7 +85,7 @@ curl -s https://${FQDN}${BASE_PATH}/v1/turn-creds?peer_id=00000000-0000-0000-000
 
 ## Features over upstream
 
-This deployment adds three things to the upstream LocalSend web/server:
+This deployment adds four things to the upstream LocalSend web/server:
 
 1. **Sub-path hosting** (`BASE_PATH=/send`) — run alongside other apps on
    the same domain.
@@ -97,6 +97,10 @@ This deployment adds three things to the upstream LocalSend web/server:
    into the compose stack. The signaling server mints short-lived TURN
    credentials (HMAC-SHA1) bound to active WebSocket sessions, so the
    endpoint can't be drive-by scraped.
+4. **Self-hosted icons** — the web client's icons are bundled at build
+   time from `@iconify-json/material-symbols` instead of fetched from
+   `api.iconify.design`, so the browser only talks to your own host (plus
+   your STUN/TURN server).
 
 ## Alternative coturn deployment
 
